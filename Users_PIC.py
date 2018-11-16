@@ -7,8 +7,8 @@ from pyspark import SparkContext, SparkConf
 import datetime as dt
 from pyspark.ml.feature import VectorAssembler
 import dateutil.parser as par
-
-conf = SparkConf().setAppName("test").setMaster("local[*]")
+SparkContext.setSystemProperty('spark.executor.memory', '3g')
+conf = SparkConf().setAppName("test").setMaster("local")
 sc = SparkContext(conf=conf)
 from pyspark.sql import SparkSession
 
@@ -18,7 +18,8 @@ spark = SparkSession \
     .config("spark.some.config.option", "Angadpreet-KMeans") \
     .getOrCreate()
 today = dt.datetime.today()
-spark_df = spark.read.json("yelp_academic_dataset_user.json").select("review_count", "average_stars").rdd
+spark_df = spark.createDataFrame(spark.read.json("yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0], x[1], (today - par.parse(x[2])).days)).take(1700))
+spark_df = spark.createDataFrame(spark_df.toPandas().transpose()).rdd
 vector_df = sc.parallelize(spark_df.map(lambda s : Vectors.dense(s)).collect())
 mat = RowMatrix(vector_df)
 mat.rows.foreach(print)

@@ -18,10 +18,11 @@ spark = SparkSession \
     .config("spark.some.config.option", "Angadpreet-KMeans") \
     .getOrCreate()
 today = dt.datetime.today()
-spark_df = spark.read.json("Data/yelp_academic_dataset_business.json").select("review_count", "stars", "is_open").fillna(0).rdd.map(lambda x: (x[0], x[1], x[2]))
+spark_df = spark.createDataFrame(sc.parallelize(spark.read.json("Data/yelp_academic_dataset_business.json").select("review_count", "stars", "is_open").fillna(0)))
+spark_df = spark.createDataFrame(spark_df.toPandas().transpose()).rdd
 vector_df = sc.parallelize(spark_df.map(lambda s : Vectors.dense(s)).collect())
 mat = RowMatrix(vector_df)
-mat.rows.foreach(print)
+#mat.rows.foreach(print)
 # cm = CoordinateMatrix(
 #     mat.rows.zipWithIndex().flatMap(
 #         lambda x: [MatrixEntry(x[1], j, v) for j, v in enumerate(x[0])]
