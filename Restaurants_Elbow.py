@@ -15,8 +15,8 @@ spark = SparkSession \
     .config("spark.some.config.option", "Angadpreet-Elbow") \
     .getOrCreate()
 today = dt.datetime.today()
-spark_df = spark.read.json("Data/yelp_academic_dataset_business.json").select("review_count", "stars", "is_open").fillna(0).rdd.map(lambda x: (x[0], x[1], x[2]))
-vector_df = spark_df.map(lambda s : Vectors.dense(s))
+spark_df = spark.read.json("Data/yelp_academic_dataset_business.json").select("review_count", "stars", "is_open").fillna(0)
+vector_df = spark_df.rdd.map(lambda x: (x[0], x[1], x[2])).map(lambda s : Vectors.dense(s))
 Sum_of_squared_distances = []
 K = range(1,15)
 for k in K:
