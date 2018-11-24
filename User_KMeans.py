@@ -21,20 +21,17 @@ spark = SparkSession \
     .config("spark.some.config.option", "Angadpreet-KMeans") \
     .getOrCreate()
 today = dt.datetime.today()
-spark_df = spark.read.json("Data/yelp_academic_dataset_business.json").select("stars","review_count","is_open").rdd
+spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0], x[1], (today - par.parse(x[2])).days)).take(1700))
 scaler = MinMaxScaler(inputCol="_1",\
          outputCol="scaled_1")
 trial_df = spark_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF()
 scalerModel = scaler.fit(trial_df)
 vector_df = scalerModel.transform(trial_df).select("scaled_1").rdd.map(lambda x:Vectors.dense(x))
-Sum_of_squared_distances = []
-K = range(1,15)
-for k in K:
-    km = KMeans()
-    kme = km.train(vector_df, k)
-    Sum_of_squared_distances.append(kme.computeCost(vector_df))
-plt.plot(K, Sum_of_squared_distances, 'bx-')
-plt.xlabel('k')
-plt.ylabel('Sum_of_squared_distances')
-plt.title('Elbow Method For Optimal k')
-plt.show()
+#vector_df = spark_df.map(lambda s : Vectors.dense(s))
+km = KMeans()
+kme = km.train(vector_df, k = 3, maxIterations = 40, initializationMode = "random")
+print(kme.computeCost(vector_df))
+centroids = kme.clusterCenters
+df_with = vector_df.map(lambda x:(x[0], kme.predict(x[0])))
+error_df = df_with.map(lambda x:(Vectors.squared_distance(x[0], centroids[x[1]]))).reduce(lambda a, b: a+b)
+print(error_df)

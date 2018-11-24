@@ -13,6 +13,10 @@ sc = SparkContext(conf=conf)
 from pyspark.sql import SparkSession
 from pyspark.ml.feature import MinMaxScaler
 import pyspark.ml.linalg
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import pandas as pd
+import numpy as np
 def func1(x, y):
     z = x[0] + y[0]
     s = x[1] + y[1]
@@ -41,7 +45,13 @@ bun = mat.rows.collect()
 pre = sc.parallelize(mat.columnSimilarities().entries.map(lambda e: (e.i, e.j, e.value)).collect())
 #simsPerfect = sc.parallelize(mat.columnSimilarities().entries.collect())
 model = PowerIterationClustering.train(pre, 3, 40, "random")
-hun = model.assignments().map(lambda x: (x.cluster, (Vectors.dense(bun[0][x.id], bun[1][x.id], bun[2][x.id]), 1)))
-centroids = hun.reduceByKey(lambda x, y: func1(x, y)).map(lambda x: (x[0], x[1][0]/x[1][1])).collect()
-error_df = hun.map(lambda x:(Vectors.squared_distance(x[1][0], centroids[x[0]][1]))).reduce(lambda a, b: a+b)
-print(error_df)
+df_with = spark.createDataFrame(model.assignments().map(lambda x: (float(bun[0][x.id]), float(bun[1][x.id]), float(bun[2][x.id]), x.cluster))).toPandas()
+fig = plt.figure()
+ax = fig.add_subplot(111, projection = '3d')
+scatter = ax.scatter(df_with['_1'],df_with['_2'],df_with['_3'],
+                     c=df_with['_4'])
+ax.set_title('Spectral/Power Iteration Clustering')
+ax.set_xlabel('Review Count')
+ax.set_ylabel('Average Stars')
+plt.colorbar(scatter)
+plt.show()

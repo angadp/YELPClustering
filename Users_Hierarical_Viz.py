@@ -10,6 +10,18 @@ import pandas as pd
 import numpy as np
 from pyspark.ml.feature import MinMaxScaler
 import pyspark.ml.linalg
+import sys
+
+def findCenter(vector, centroids):
+    dist = sys.maxint
+    cluster = -1
+    i = 0
+    for center in centroids:
+        if(Vectors.squared_distance(center, vector)<dist):
+            dist = Vectors.squared_distance(center, vector)
+            cluster = i
+        i += 1
+    return cluster
 
 conf = SparkConf().setAppName("test").setMaster("local[*]")
 sc = SparkContext(conf=conf)
@@ -29,5 +41,15 @@ scalerModel = scaler.fit(trial_df)
 vector_df = scalerModel.transform(trial_df).select("scaled_1").rdd.map(lambda x:Vectors.dense(x))
 #vector_df = spark_df.map(lambda s : Vectors.dense(s))
 km = BisectingKMeans()
-kme = km.train(vector_df, k = 3, maxIterations = 20, initializationMode = "random")
-print(kme.computeCost(vector_df))
+kme = km.train(vector_df, k = 3, maxIterations = 20)
+centers = kme.clusterCenters
+df_with = spark.createDataFrame(vector_df.map(lambda x:(float(x[0][0]), float(x[0][1]), float(x[0][2]), findCenter(x[0], centers)))).toPandas()
+fig = plt.figure()
+ax = fig.add_subplot(111, projection = '3d')
+scatter = ax.scatter(df_with['_1'],df_with['_2'],df_with['_3'],
+                     c=df_with['_4'])
+ax.set_title('Bisecting K Means Clustering')
+ax.set_xlabel('Review Count')
+ax.set_ylabel('Average Stars')
+plt.colorbar(scatter)
+plt.show()
