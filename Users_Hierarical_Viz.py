@@ -11,7 +11,9 @@ import numpy as np
 from pyspark.ml.feature import MinMaxScaler
 import pyspark.ml.linalg
 import sys
-
+from pyspark.sql import SparkSession
+SparkContext.setSystemProperty('spark.executor.memory', '4g')
+# Find the cluster number for the points
 def findCenter(vector, centroids):
     dist = sys.maxint
     cluster = -1
@@ -25,8 +27,8 @@ def findCenter(vector, centroids):
 
 conf = SparkConf().setAppName("test").setMaster("local[*]")
 sc = SparkContext(conf=conf)
-from pyspark.sql import SparkSession
 
+#Selecting fields and scaling using MinMaxScaler
 spark = SparkSession \
     .builder \
     .appName("KMeans") \
@@ -39,11 +41,16 @@ scaler = MinMaxScaler(inputCol="_1",\
 trial_df = spark_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF()
 scalerModel = scaler.fit(trial_df)
 vector_df = scalerModel.transform(trial_df).select("scaled_1").rdd.map(lambda x:Vectors.dense(x))
-#vector_df = spark_df.map(lambda s : Vectors.dense(s))
+
+#Input into the Algorithm
 km = BisectingKMeans()
-kme = km.train(vector_df, k = 3, maxIterations = 20)
+kme = km.train(vector_df, k = 4, maxIterations = 20, seed=2018)
 centers = kme.clusterCenters
+
+#Creating data structure with fields and cluster center
 df_with = spark.createDataFrame(vector_df.map(lambda x:(float(x[0][0]), float(x[0][1]), float(x[0][2]), findCenter(x[0], centers)))).toPandas()
+
+#Plotting
 fig = plt.figure()
 ax = fig.add_subplot(111, projection = '3d')
 scatter = ax.scatter(df_with['_1'],df_with['_2'],df_with['_3'],
@@ -51,5 +58,6 @@ scatter = ax.scatter(df_with['_1'],df_with['_2'],df_with['_3'],
 ax.set_title('Bisecting K Means Clustering')
 ax.set_xlabel('Review Count')
 ax.set_ylabel('Average Stars')
+ax.set_zlabel('Yelping since')
 plt.colorbar(scatter)
 plt.show()

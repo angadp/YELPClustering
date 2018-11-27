@@ -28,11 +28,15 @@ today = dt.datetime.today()
 spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0], x[1], (today - par.parse(x[2])).days)).take(1700))
 scaler = MinMaxScaler(inputCol="_1",\
          outputCol="scaled_1")
+
+# Getting the data
 trial_df = spark_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF()
 scalerModel = scaler.fit(trial_df)
 vector_df = scalerModel.transform(trial_df).select("scaled_1").rdd.map(lambda x:pyspark.ml.linalg.Vectors.dense(float(x[0][0]), float(x[0][1]), float(x[0][2])))
 trial_df = vector_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF(["features"])
-gmm = GaussianMixture().setK(3).setMaxIter(20)
+
+# Initialize GMM
+gmm = GaussianMixture().setK(4).setMaxIter(20).setSeed(2018)
 model = gmm.fit(trial_df)
 
 transformed_df = model.transform(trial_df)  # assign data to gaussian components ("clusters")
@@ -45,5 +49,6 @@ scatter = ax.scatter(df_with['_1'],df_with['_2'],df_with['_3'],
 ax.set_title('GMM Clustering')
 ax.set_xlabel('Review Count')
 ax.set_ylabel('Average Stars')
+ax.set_zlabel('Yelping Since')
 plt.colorbar(scatter)
 plt.show()

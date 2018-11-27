@@ -21,15 +21,18 @@ spark = SparkSession \
     .config("spark.some.config.option", "Angadpreet-KMeans") \
     .getOrCreate()
 today = dt.datetime.today()
+
+# Getting the data
 spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0], x[1], (today - par.parse(x[2])).days)).take(1700))
 scaler = MinMaxScaler(inputCol="_1",\
          outputCol="scaled_1")
 trial_df = spark_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF()
 scalerModel = scaler.fit(trial_df)
 vector_df = scalerModel.transform(trial_df).select("scaled_1").rdd.map(lambda x:Vectors.dense(x))
-#vector_df = spark_df.map(lambda s : Vectors.dense(s))
+
+# Initialize K Means
 km = KMeans()
-kme = km.train(vector_df, 3)
+kme = km.train(vector_df, k = 4, maxIterations = 20, initializationMode = "random", seed=2018)
 print(kme.computeCost(vector_df))
 print(kme.clusterCenters)
 df_with = spark.createDataFrame(vector_df.map(lambda x:(float(x[0][0]), float(x[0][1]), float(x[0][2]), kme.predict(x[0])))).toPandas()
@@ -40,5 +43,6 @@ scatter = ax.scatter(df_with['_1'],df_with['_2'],df_with['_3'],
 ax.set_title('K Means Clustering')
 ax.set_xlabel('Review Count')
 ax.set_ylabel('Average Stars')
+ax.set_zlabel('Yelping Since')
 plt.colorbar(scatter)
 plt.show()

@@ -1,20 +1,20 @@
-import matplotlib.pyplot as plt
-from pyspark.mllib.linalg import Vectors
-from pyspark.mllib.clustering import KMeans
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.clustering import GaussianMixture
 from pyspark import SparkContext, SparkConf
 import datetime as dt
 import dateutil.parser as par
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import pandas as pd
-import numpy as np
-import sys
 from pyspark.ml.feature import MinMaxScaler
 import pyspark.ml.linalg
+import sys
 
 conf = SparkConf().setAppName("test").setMaster("local[*]")
 sc = SparkContext(conf=conf)
 from pyspark.sql import SparkSession
+
+def func1(x, y):
+    z = x[0] + y[0]
+    s = x[1] + y[1]
+    return (z, s)
 
 spark = SparkSession \
     .builder \
@@ -22,23 +22,22 @@ spark = SparkSession \
     .config("spark.some.config.option", "Angadpreet-KMeans") \
     .getOrCreate()
 today = dt.datetime.today()
-
-# Getting the data
-spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0], x[1], (today - par.parse(x[2])).days)).collect()[:1700])
+spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_business.json").select("stars","review_count","is_open").collect()[:1700])
 scaler = MinMaxScaler(inputCol="_1",\
          outputCol="scaled_1")
+# Getting the input data
 trial_df = spark_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF()
 scalerModel = scaler.fit(trial_df)
-vector_df = scalerModel.transform(trial_df).select("scaled_1").rdd.map(lambda x:Vectors.dense(x))
+vector_df = scalerModel.transform(trial_df).select("scaled_1").rdd.map(lambda x:pyspark.ml.linalg.Vectors.dense(float(x[0][0]), float(x[0][1]), float(x[0][2])))
+trial_df = vector_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF(["features"])
 
-# Initialize K Means
-km = KMeans()
-kme = km.train(vector_df, k = 4, maxIterations = 60, initializationMode = "random", seed=2018)
-print(kme.computeCost(vector_df))
-centroids = kme.clusterCenters
-num_clusters = 4
-err = vector_df.map(lambda x:(x[0], kme.predict(x[0]))).collect()
+# Initialize GMM
+gmm = GaussianMixture().setK(3).setMaxIter(60).setSeed(2018)
+model = gmm.fit(trial_df)
 
+transformed_df = model.transform(trial_df)  # assign data to gaussian components ("clusters")
+err = transformed_df.rdd.map(lambda x: (x[0], x[1])).collect()
+num_clusters = 3
 #Silhoutte Value comparison
 ag = 0
 agi = 1700
@@ -59,8 +58,6 @@ for er in err:
 sil = (ag/agi)
 
 print(sil)
-
-# Number of points in each cluster
-df_with = sc.parallelize(err).map(lambda x:(x[1], 1)).reduceByKey(lambda a, b: a+b).collect()
+df_with = transformed_df.rdd.map(lambda x:(x[1], 1)).reduceByKey(lambda a, b: a+b).collect()
 for ji in df_with:
     print(ji)
