@@ -29,7 +29,7 @@ spark = SparkSession \
 today = dt.datetime.today()
 
 # Getting the data structure and scaling
-spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0], x[1], (today - par.parse(x[2])).days)).collect()[:1700])
+spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0], x[1], (today - par.parse(x[2])).days)).collect()[:1200])
 scaler = MinMaxScaler(inputCol="_1",\
          outputCol="scaled_1")
 trial_df = spark_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF()
@@ -44,12 +44,16 @@ bun = mat.rows.collect()
 num_clusters = 4
 
 pre = sc.parallelize(mat.columnSimilarities().entries.map(lambda e: (e.i, e.j, e.value)).collect())
-model = PowerIterationClustering.train(pre, 4, 60, "random")
+
+model = PowerIterationClustering.train(pre, 4, 10, "random")
 err = model.assignments().map(lambda x: (Vectors.dense(bun[0][x.id], bun[1][x.id], bun[2][x.id]), x.cluster)).collect()
+
+per_clus = [0]*num_clusters
+per_clus_num = [0]*num_clusters
 
 # Silhoutte value
 ag = 0
-agi = 1700
+agi = 1200
 for er in err:
     avg = [0] * num_clusters
     avgi = [0] * num_clusters
@@ -63,11 +67,17 @@ for er in err:
             if (avg[i] / avgi[i] < b):
                 b = avg[i] / avgi[i]
     ag += (b - a)/max(b, a)
+    per_clus[er[1]] += (b - a) / max(b, a)
+    per_clus_num[er[1]] += 1
 
-sil = (ag/agi)
+sil = (ag / agi)
 
 print(sil)
 
-df_with = model.assignments().map(lambda x:(x.cluster, 1)).reduceByKey(lambda a, b: a+b).collect()
+# Number of points in each cluster
+df_with = sc.parallelize(err).map(lambda x: (x[1], 1)).reduceByKey(lambda a, b: a + b).collect()
 for ji in df_with:
     print(ji)
+
+for i in range(len(per_clus)):
+    print(per_clus[i] / per_clus_num[i])

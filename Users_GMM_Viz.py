@@ -1,10 +1,12 @@
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.clustering import GaussianMixture
+from pyspark.mllib.linalg import Vectors
+from pyspark.mllib.clustering import GaussianMixture, KMeans
 from pyspark import SparkContext, SparkConf
 import datetime as dt
 import dateutil.parser as par
 from pyspark.ml.feature import MinMaxScaler
 import pyspark.ml.linalg
+import sys
+import pandas
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import pandas as pd
@@ -25,23 +27,26 @@ spark = SparkSession \
     .config("spark.some.config.option", "Angadpreet-KMeans") \
     .getOrCreate()
 today = dt.datetime.today()
-spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0], x[1], (today - par.parse(x[2])).days)).take(1700))
+spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0], x[1], (today - par.parse(x[2])).days)).collect()[:1700])
 scaler = MinMaxScaler(inputCol="_1",\
          outputCol="scaled_1")
-
-# Getting the data
+# Getting the input data
 trial_df = spark_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF()
 scalerModel = scaler.fit(trial_df)
-vector_df = scalerModel.transform(trial_df).select("scaled_1").rdd.map(lambda x:pyspark.ml.linalg.Vectors.dense(float(x[0][0]), float(x[0][1]), float(x[0][2])))
-trial_df = vector_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF(["features"])
+vector_df = scalerModel.transform(trial_df).select("scaled_1").rdd.map(lambda x:Vectors.dense(x))
 
 # Initialize GMM
-gmm = GaussianMixture().setK(4).setMaxIter(20).setSeed(2018)
-model = gmm.fit(trial_df)
+gmm = GaussianMixture.train(vector_df, k=4, maxIterations=20, seed=2018)
 
-transformed_df = model.transform(trial_df)  # assign data to gaussian components ("clusters")
-final_df = transformed_df.rdd.map(lambda x:(x[1], (x[0], 1)))
-df_with = spark.createDataFrame(final_df.map(lambda x: (float(x[1][0][0]), float(x[1][0][1]), float(x[1][0][2]), x[0]))).toPandas()
+df = pandas.DataFrame({'features':[], 'cluster':[]})
+i = 0
+for v in vector_df.collect():
+    df.loc[i] = [[float(v[0]), float(v[1]), float(v[2])], int(gmm.predict(v))]
+    i+=1
+
+print df
+
+df_with = spark.createDataFrame(spark.createDataFrame(df).rdd.map(lambda x:(x[0][0], x[0][1], x[0][2], int(x[1])))).toPandas()
 fig = plt.figure()
 ax = fig.add_subplot(111, projection = '3d')
 scatter = ax.scatter(df_with['_1'],df_with['_2'],df_with['_3'],

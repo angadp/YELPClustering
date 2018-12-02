@@ -53,6 +53,6 @@ scatter = ax.scatter(df_with['_1'],df_with['_2'],df_with['_3'],
 ax.set_title('Spectral/Power Iteration Clustering')
 ax.set_xlabel('Review Count')
 ax.set_ylabel('Average Stars')
-ax.set_ylabel('Yelping Since')
+ax.set_zlabel('Yelping Since')
 plt.colorbar(scatter)
 plt.show()

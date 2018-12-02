@@ -11,6 +11,9 @@ import numpy as np
 import sys
 from pyspark.ml.feature import MinMaxScaler
 import pyspark.ml.linalg
+from timeit import default_timer as timer
+
+
 
 conf = SparkConf().setAppName("test").setMaster("local[*]")
 sc = SparkContext(conf=conf)
@@ -24,7 +27,7 @@ spark = SparkSession \
 today = dt.datetime.today()
 
 # Getting the data
-spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0], x[1], (today - par.parse(x[2])).days)).collect()[:1700])
+spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_user.json").select("review_count", "average_stars", "yelping_since").rdd.map(lambda x: (x[0],x[1],  (today - par.parse(x[2])).days)).collect()[:1200])
 scaler = MinMaxScaler(inputCol="_1",\
          outputCol="scaled_1")
 trial_df = spark_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF()
@@ -33,15 +36,23 @@ vector_df = scalerModel.transform(trial_df).select("scaled_1").rdd.map(lambda x:
 
 # Initialize K Means
 km = KMeans()
-kme = km.train(vector_df, k = 4, maxIterations = 60, initializationMode = "random", seed=2018)
+start = timer()
+kme = km.train(vector_df, k = 4, maxIterations = 20, initializationMode = "random", seed=2018)
+end = timer()
+print(end - start)
 print(kme.computeCost(vector_df))
 centroids = kme.clusterCenters
 num_clusters = 4
 err = vector_df.map(lambda x:(x[0], kme.predict(x[0]))).collect()
 
+per_clus = [0]*num_clusters
+per_clus_num = [0]*num_clusters
+
+
+
 #Silhoutte Value comparison
 ag = 0
-agi = 1700
+agi = 1200
 for er in err:
     avg = [0] * num_clusters
     avgi = [0] * num_clusters
@@ -55,6 +66,8 @@ for er in err:
             if (avg[i] / avgi[i] < b):
                 b = avg[i] / avgi[i]
     ag += (b - a)/max(b, a)
+    per_clus[er[1]] += (b - a)/max(b, a)
+    per_clus_num[er[1]] += 1
 
 sil = (ag/agi)
 
@@ -64,3 +77,6 @@ print(sil)
 df_with = sc.parallelize(err).map(lambda x:(x[1], 1)).reduceByKey(lambda a, b: a+b).collect()
 for ji in df_with:
     print(ji)
+
+for i in range(len(per_clus)):
+    print(per_clus[i]/per_clus_num[i])

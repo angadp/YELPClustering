@@ -13,7 +13,7 @@ conf = SparkConf().setAppName("test").setMaster("local")
 sc = SparkContext(conf=conf)
 
 from pyspark.sql import SparkSession
-from pyspark.ml.feature import MinMaxScaler
+from pyspark.ml.feature import StandardScaler
 import pyspark.ml.linalg
 
 def func1(x, y):
@@ -30,7 +30,7 @@ today = dt.datetime.today()
 
 # Getting the data structure and scaling
 spark_df = sc.parallelize(spark.read.json("Data/yelp_academic_dataset_business.json").select("stars","review_count","is_open").take(1700))
-scaler = MinMaxScaler(inputCol="_1",\
+scaler = StandardScaler(inputCol="_1",\
          outputCol="scaled_1")
 trial_df = spark_df.map(lambda x: pyspark.ml.linalg.Vectors.dense(x)).map(lambda x:(x, )).toDF()
 scalerModel = scaler.fit(trial_df)

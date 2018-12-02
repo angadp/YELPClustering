@@ -55,7 +55,7 @@ num_clusters = 3
 
 #Input into the Algorithm
 km = KMeans()
-kme = km.train(vector_df, k = num_clusters, maxIterations = 20, seed=20189080)
+kme = km.train(vector_df, k = num_clusters, maxIterations = 10, seed=2018)
 centers = kme.clusterCenters
 
 err = vector_df.map(lambda x:(x[0], findCenter(x[0], centers))).collect()
