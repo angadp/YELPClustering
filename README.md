@@ -1,12 +1,13 @@
+## Comparson of Clustering Algorithms based on various characteristics of dataset
+
 Download the dataset at https://www.yelp.com/dataset
 
-Refer to the following document
+1. Check out the ppt to get basic understanding about the project.
+2. Check out the report to get more detailed analysis on the topic.
+3. Clone the repo, download the dataset to confirm the hypothesis.
 
-http://rafaelsilva.com/wp-content/uploads/2018/12/005-Comparison-of-clustering-methods.pdf
+The comparison is based on avererging the results over several iterations of the
+dataset with similar characterisitics as described in the report. The visulizations
+are confirmed over a small dataset so as to create clearer plots.
 
-I did all my data mining assignments in Scala. I cannot post them online due to academic integrity policy.
-
-Below is the list of some of the assignments done on the YELP dataset(small, large and very large)-
-1. Collabrative Filtering - User Based and Model Based
-2. Frequent Itemsets - SON Algorithm
-3. Twitter Streaming - Get top 10 hastags in a time period
+Please contact angadpreet.nagpal@gmail.com if you have further questions.
